@@ -1,4 +1,4 @@
-#include <ring-buf.h>
+#include "ring-buf.h"
 #include <string.h>
 
 int ringbuf_init(ring_buf_t *const rbuf, void *const addr, const unsigned bsize, const unsigned count)
