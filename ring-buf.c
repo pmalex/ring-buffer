@@ -4,8 +4,10 @@
 int ringbuf_init(ring_buf_t *const rbuf, void *const addr, const unsigned bsize, const unsigned count)
 {
 	/* inappropriate paremeters */
-	if(bsize == 0 || count < 2 || rbuf == NULL || addr == NULL)
+	if (bsize == 0 || count < 2 || rbuf == NULL || addr == NULL)
+	{
 		return -1;
+	}
 
 	rbuf->start = addr;
 
@@ -49,8 +51,10 @@ int ringbuf_empty(const ring_buf_t *const rbuf)
 int ringbuf_put(ring_buf_t* const rbuf, const void *const data)
 {
 	/* if buffer is full, just return */
-	if(ringbuf_full(rbuf))
+	if (ringbuf_full(rbuf))
+	{
 		return -1;
+	}
 
 	/* buffer is not full, then we insert element */
 	memcpy(rbuf->tail, data, rbuf->bs);
@@ -63,8 +67,10 @@ int ringbuf_put(ring_buf_t* const rbuf, const void *const data)
 int ringbuf_get(ring_buf_t *const rbuf, void *const data)
 {
 	/* if buffer is empty, just return */
-	if(ringbuf_empty(rbuf))
+	if (ringbuf_empty(rbuf))
+	{
 		return -1;
+	}
 
 	/* take an element */
 	memcpy(data, rbuf->head, rbuf->bs);
@@ -78,9 +84,13 @@ size_t ringbuf_getcnt(const ring_buf_t *const rbuf)
 {
 	int d = (rbuf->tail - rbuf->head)/rbuf->bs;
 	if (d >= 0)
+	{
 		return d;
+	}
 	else
+	{
 		return rbuf->cnt + d;
+	}
 }
 
 /* Clear buffer */
