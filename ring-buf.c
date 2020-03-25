@@ -1,100 +1,147 @@
 #include "ring-buf.h"
-#include <string.h>
 
-int ringbuf_init(ring_buf_t *const rbuf, void *const addr, const unsigned bsize, const unsigned count)
+static int ringbuf_npeek(const ring_buf_t *rbuf, const void *ptr, void *data,
+					     unsigned n);
+static void* ringbuf_next(const ring_buf_t *rbuf, const void *ptr);
+
+void ringbuf_init(ring_buf_t *rbuf, const void *addr, unsigned bs, unsigned cnt)
 {
-	/* inappropriate paremeters */
-	if (bsize == 0 || count < 2 || rbuf == NULL || addr == NULL)
-	{
-		return -1;
-	}
+	rbuf->start = rbuf->head = rbuf->tail = (void*)addr;
 
-	rbuf->start = addr;
-
-	rbuf->head = rbuf->start;
-	rbuf->tail = rbuf->start;
-
-	rbuf->cnt = count;
-	rbuf->bs = bsize;
-
-	return 0;
+	rbuf->cnt = cnt;
+	rbuf->bs = bs;
 }
 
-void* ringbuf_head(const ring_buf_t *const rbuf)
+static void* ringbuf_next(const ring_buf_t *rbuf, const void *ptr)
 {
-	return rbuf->head;
-}
-
-void* ringbuf_tail(const ring_buf_t *const rbuf)
-{
-	return rbuf->tail;
-}
-
-void* ringbuf_next(const ring_buf_t *const rbuf, const void *const ptr)
-{
-	return (rbuf->start + ((ptr - rbuf->start) + rbuf->bs)%(rbuf->cnt * rbuf->bs));
+	return (rbuf->start + ((ptr - rbuf->start) + rbuf->bs)%
+				(rbuf->cnt * rbuf->bs));
 }
 
 /* Is full? */
-int ringbuf_full(const ring_buf_t *const rbuf)
+unsigned ringbuf_isfull(const ring_buf_t *rbuf)
 {
 	return (ringbuf_next(rbuf, rbuf->tail) == rbuf->head);
 }
 
 /* Is empty? */
-int ringbuf_empty(const ring_buf_t *const rbuf)
+unsigned ringbuf_isempty(const ring_buf_t *rbuf)
 {
 	return (rbuf->head == rbuf->tail);
 }
 
-/* Insert element */
-int ringbuf_put(ring_buf_t* const rbuf, const void *const data)
+/* Peek n bytes from buffer element pointed by ptr */
+static int ringbuf_npeek(const ring_buf_t *rbuf, const void *ptr, void *data,
+						 unsigned n)
 {
-	/* if buffer is full, just return */
-	if (ringbuf_full(rbuf))
+	/* If buffer is empty, just return error code */
+	if (ringbuf_isempty(rbuf))
 	{
 		return -1;
 	}
 
-	/* buffer is not full, then we insert element */
-	memcpy(rbuf->tail, data, rbuf->bs);
-	rbuf->tail = ringbuf_next(rbuf, rbuf->tail);
+	/* Check if n is exceeded buffer element size */
+	n = (n > rbuf->bs)?rbuf->bs:n;
 
-    return 0;
+	unsigned i;
+
+	/* Just copy elements */
+	for (i = 0; i < n; i++)
+	{
+		((unsigned char*)data)[i] = ((unsigned char*)ptr)[i];
+	}
+
+	return i; /* Return number of inserted bytes */
 }
 
-/* Get an element */
-int ringbuf_get(ring_buf_t *const rbuf, void *const data)
+/* Insert n bytes in buffer element */
+int ringbuf_nput(ring_buf_t *rbuf, const void *data, unsigned n)
 {
-	/* if buffer is empty, just return */
-	if (ringbuf_empty(rbuf))
+	/* If buffer is full, just return error code */
+	if (ringbuf_isfull(rbuf))
 	{
 		return -1;
 	}
 
-	/* take an element */
-	memcpy(data, rbuf->head, rbuf->bs);
-	rbuf->head = ringbuf_next(rbuf, rbuf->head);
+	/* Check if n is exceeded buffer element size */
+	n = (n > rbuf->bs)?rbuf->bs:n;
 
-	return 0;
+	unsigned i;
+
+	/* Buffer is not full, therefore we can insert the element */
+	for (i = 0; i < n; i++)
+	{
+		((unsigned char*)(rbuf->tail))[i] = ((unsigned char*)data)[i];
+	}
+
+	rbuf->tail = ringbuf_next(rbuf, rbuf->tail);
+
+    return i;
+}
+
+/* Get n bytes from buffer element */
+int ringbuf_nget(ring_buf_t *rbuf, void *data, unsigned n)
+{
+	int rc;
+
+	/* Peek head */
+	if ((rc = ringbuf_npeek(rbuf, rbuf->head, data, n)) >= 0)
+	{
+		rbuf->head = ringbuf_next(rbuf, rbuf->head);
+	}
+
+	return rc;
+}
+
+int ringbuf_peek_until(const ring_buf_t *rbuf, void *data, unsigned char byte)
+{
+	if (ringbuf_isempty(rbuf))
+	{
+		return -1;
+	}
+
+	unsigned i;
+
+	for (i = 0; i < rbuf->bs; i++)
+	{
+		/* Let's assign until the byte not match with some array element */
+		if ((((unsigned char*)data)[i] = ((unsigned char*)(rbuf->head))[i])
+				== byte)
+		{
+			break;
+		}
+	}
+
+	return i;
+}
+
+int ringbuf_get_until(ring_buf_t *rbuf, void *data, unsigned char byte)
+{
+	int rc;
+
+	if ((rc = ringbuf_peek_until(rbuf, data, byte)) >= 0)
+	{
+		rbuf->head = ringbuf_next(rbuf, rbuf->head);
+	}
+
+	return rc;
 }
 
 /* Get count of elements inside buffer */
-size_t ringbuf_getcnt(const ring_buf_t *const rbuf)
+unsigned ringbuf_get_cnt(const ring_buf_t *rbuf)
 {
-	int d = (rbuf->tail - rbuf->head)/rbuf->bs;
-	if (d >= 0)
+	if (rbuf->tail > rbuf->head)
 	{
-		return d;
+		return (unsigned)((rbuf->tail - rbuf->head)/rbuf->bs);
 	}
 	else
 	{
-		return rbuf->cnt + d;
+		return (unsigned)((rbuf->head - rbuf->tail)/rbuf->bs);
 	}
 }
 
 /* Clear buffer */
-void ringbuf_flush(ring_buf_t *const rbuf)
+void ringbuf_flush(ring_buf_t *rbuf)
 {
 	rbuf->head = rbuf->tail;
 }
