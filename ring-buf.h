@@ -1,27 +1,41 @@
-#ifndef _RING_BUF_H
-#define _RING_BUF_H
-
-#include <stdlib.h>
+#ifndef RING_BUF_H
+#define RING_BUF_H
 
 typedef struct ring_buf {
-	void*	start;		// start address of area
+	void*	start;		// Start address of area
 
 	void*	head;
 	void*	tail;
 
-	unsigned	cnt;		// count of elements
-	unsigned	bs;			// size of one elements (in bytes)
+	unsigned     cnt;		// Count of elements
+	unsigned     bs;		// Size of one elements (in bytes)
 } ring_buf_t;
 
-int ringbuf_init(ring_buf_t *const rbuf, void *const addr, const unsigned size, const unsigned count);
-void* ringbuf_head(const ring_buf_t *const rbuf);
-void* ringbuf_tail(const ring_buf_t *const rbuf);
-void* ringbuf_next(const ring_buf_t *const rbuf, const void *const ptr);
-int ringbuf_full(const ring_buf_t *const rbuf);
-int ringbuf_empty(const ring_buf_t *const rbuf);
-int ringbuf_put(ring_buf_t* const rbuf, const void *const data);
-int ringbuf_get(ring_buf_t *const rbuf, void *const data);
-size_t ringbuf_getcnt(const ring_buf_t *const rbuf);
-void ringbuf_flush(ring_buf_t *const rbuf);
+void ringbuf_init(ring_buf_t *rbuf, const void *addr, unsigned bs, unsigned cnt);
+
+unsigned ringbuf_isfull(const ring_buf_t *rbuf);
+unsigned ringbuf_isempty(const ring_buf_t *rbuf);
+
+int ringbuf_nput(ring_buf_t *rbuf, const void *data, unsigned n);
+int ringbuf_nget(ring_buf_t *rbuf, void *data, unsigned n);
+
+int ringbuf_peek_until(const ring_buf_t *rbuf, void *data, unsigned char byte);
+int ringbuf_get_until(ring_buf_t *rbuf, void *data, unsigned char byte);
+
+unsigned ringbuf_get_cnt(const ring_buf_t *rbuf);
+void ringbuf_flush(ring_buf_t *rbuf);
+
+
+static inline
+int ringbuf_put(ring_buf_t *rbuf, const void *data)
+{
+	return ringbuf_nput(rbuf, data, rbuf->bs);
+}
+
+static inline
+int ringbuf_get(ring_buf_t *rbuf, void *data)
+{
+	return ringbuf_nget(rbuf, data, rbuf->bs);
+}
 
 #endif
